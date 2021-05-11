@@ -25,7 +25,7 @@ def _load_jupyter_server_extension(nbapp):
 
     server_processes = [make_server_process(k, v) for k, v in serverproxy.servers.items()]
     server_processes += get_entrypoint_server_processes()
-    server_handlers = make_handlers(base_url, server_processes)
+    server_handlers = make_handlers(base_url, server_processes, nbapp.web_app)
     nbapp.web_app.add_handlers('.*', server_handlers)
 
     # Set up default handler

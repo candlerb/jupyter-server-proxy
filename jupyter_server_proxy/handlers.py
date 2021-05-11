@@ -44,6 +44,7 @@ class ProxyHandler(WebSocketHandlerMixin, JupyterHandler):
         self.proxy_base = ''
         self.absolute_url = kwargs.pop('absolute_url', False)
         self.host_allowlist = kwargs.pop('host_allowlist', ['localhost', '127.0.0.1'])
+        self.transparent = kwargs.pop('transparent', False)
         self.subprotocols = None
         super().__init__(*args, **kwargs)
 
@@ -138,8 +139,8 @@ class ProxyHandler(WebSocketHandlerMixin, JupyterHandler):
             return url_path_join(self.base_url, 'proxy', host_and_port)
 
     def get_client_uri(self, protocol, host, port, proxied_path):
-        context_path = self._get_context_path(host, port)
-        if self.absolute_url:
+        if self.absolute_url and not self.transparent:
+            context_path = self._get_context_path(host, port)
             client_path = url_path_join(context_path, proxied_path)
         else:
             client_path = proxied_path
@@ -171,7 +172,7 @@ class ProxyHandler(WebSocketHandlerMixin, JupyterHandler):
         client_uri = self.get_client_uri('http', host, port, proxied_path)
         # Some applications check X-Forwarded-Context and X-ProxyContextPath
         # headers to see if and where they are being proxied from.
-        if not self.absolute_url:
+        if not self.absolute_url and not self.transparent:
             context_path = self._get_context_path(host, port)
             headers['X-Forwarded-Context'] = context_path
             headers['X-ProxyContextPath'] = context_path
@@ -448,6 +449,8 @@ class SuperviseAndProxyHandler(LocalProxyHandler):
         Allocate either the requested port or a random empty port for use by
         application
         """
+        if not self.has_cmd():
+            return self.requested_port
         if 'port' not in self.state:
             sock = socket.socket()
             sock.bind(('', self.requested_port))
@@ -495,6 +498,8 @@ class SuperviseAndProxyHandler(LocalProxyHandler):
         # FIXME: Make sure this times out properly?
         # Invariant here should be: when lock isn't being held, either 'proc' is in state &
         # running, or not.
+        if not self.has_cmd():
+            return
         async with self.state['proc_lock']:
             if 'proc' not in self.state:
                 # FIXME: Prevent races here

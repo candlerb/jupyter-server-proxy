@@ -80,7 +80,9 @@ async function activate(app: JupyterFrontEnd, launcher: ILauncher, restorer: ILa
       continue;
     }
 
-    const url = PageConfig.getBaseUrl() + server_process.name + '/';
+    const url = server_process.external_port ?
+                window.location.protocol + '//' + window.location.hostname + ':' + server_process.external_port :
+                PageConfig.getBaseUrl() + server_process.name + '/';
     const title = server_process.launcher_entry.title;
     const newBrowserTab = server_process.new_browser_tab;
     const id = namespace + ':' + server_process.name;

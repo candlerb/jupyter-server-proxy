@@ -17,6 +17,7 @@ class ServersInfoHandler(JupyterHandler):
             # Manually recurse to convert namedtuples into JSONable structures
             item = {
                 'name': sp.name,
+                'external_port': sp.external_port,
                 'launcher_entry': {
                     'enabled': sp.launcher_entry.enabled,
                     'title': sp.launcher_entry.title

@@ -151,6 +151,23 @@ pairs.
      and returns a dictionary of strings that are used & treated same as above.
 
 
+``external_port``
+^^^^^^^^^^^^^^^^^
+
+   Incoming requests with this port number in the ``Host:`` header will
+   be proxied directly to this service without requiring any path prefix.
+   This is intended for use with services which don't support running under
+   a prefix.
+
+   You are responsible for creating an external listener on this port - e.g.
+   a kubernetes service or iptables rule which directs incoming traffic on
+   this port to configurable-http-proxy.
+
+   If you want to proxy to an already-running service, then set ``command``
+   to ``[]``, and set ``port`` to the required target port (which can be
+   different to ``external_port``)
+
+
 .. _server-processes/callable-arguments:
 
 Callable arguments

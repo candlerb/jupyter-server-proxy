@@ -6,9 +6,12 @@ from traitlets import Dict, List, Union, default, observe
 from traitlets.config import Configurable
 from warnings import warn
 from .handlers import SuperviseAndProxyHandler, AddSlashHandler
+from .tornado_ext import HostPortMatches
 import pkg_resources
 from collections import namedtuple
 from .utils import call_with_asked_args
+import tornado.routing
+import tornado.web
 
 try:
     # Traitlets >= 4.3.3
@@ -59,6 +62,9 @@ def _make_serverproxy_handler(name, command, environment, timeout, absolute_url,
                 )
             return self._render_template(attribute)
 
+        def has_cmd(self):
+            return bool(command)
+
         def get_cmd(self):
             return self._realize_rendered_template(command)
 
@@ -82,7 +88,7 @@ def get_entrypoint_server_processes():
         )
     return sps
 
-def make_handlers(base_url, server_processes):
+def make_handlers(base_url, server_processes, web_app):
     """
     Get tornado handlers for registered server_processes
     """
@@ -98,17 +104,24 @@ def make_handlers(base_url, server_processes):
             sp.mappath,
             sp.request_headers_override,
         )
+        state = {}
         handlers.append((
-            ujoin(base_url, sp.name, r'(.*)'), handler, dict(state={}),
+            ujoin(base_url, sp.name, r'(.*)'), handler, dict(state=state),
         ))
         handlers.append((
             ujoin(base_url, sp.name), AddSlashHandler
         ))
+        if sp.external_port:
+            host_matcher = HostPortMatches('.*:{}$'.format(sp.external_port))
+            rule = tornado.routing.Rule(host_matcher, tornado.web._ApplicationRouter(web_app, [
+                ('(.*)', handler, dict(state=state, transparent=True)),
+            ]))
+            web_app.default_router.rules.insert(-1, rule)
     return handlers
 
 LauncherEntry = namedtuple('LauncherEntry', ['enabled', 'icon_path', 'title'])
 ServerProcess = namedtuple('ServerProcess', [
-    'name', 'command', 'environment', 'timeout', 'absolute_url', 'port', 'mappath', 'launcher_entry', 'new_browser_tab', 'request_headers_override'])
+    'name', 'command', 'environment', 'timeout', 'absolute_url', 'port', 'mappath', 'launcher_entry', 'new_browser_tab', 'request_headers_override', 'external_port'])
 
 def make_server_process(name, server_process_config):
     le = server_process_config.get('launcher_entry', {})
@@ -126,7 +139,8 @@ def make_server_process(name, server_process_config):
             title=le.get('title', name)
         ),
         new_browser_tab=server_process_config.get('new_browser_tab', True),
-        request_headers_override=server_process_config.get('request_headers_override', {})
+        request_headers_override=server_process_config.get('request_headers_override', {}),
+        external_port=server_process_config.get('external_port', None),
     )
 
 class ServerProxy(Configurable):
